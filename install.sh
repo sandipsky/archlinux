@@ -34,6 +34,7 @@ pipewire wireplumber pipewire-alsa pipewire-pulse \
 
 genfstab -U /mnt >> /mnt/etc/fstab
 ROOT_UUID=$(blkid -s UUID -o value "$ROOT")
+HOME_UUID=$(blkid -s UUID -o value "$HOME_DEV") || true
 VIRT=$(systemd-detect-virt) || true
 
 ### -------- CHROOT SCRIPT --------
@@ -138,7 +139,6 @@ chmod 644 /etc/polkit-1/rules.d/49-nopasswd_global.rules
 
 if [[ -n "$HOME_DEV" ]]; then
     mkdir -p /mnt/HOME
-    HOME_UUID=$(blkid -s UUID -o value "$HOME_DEV")
     echo "UUID=$HOME_UUID /mnt/HOME auto nosuid,nodev,nofail,x-gvfs-show 0 0" >> /etc/fstab
     mount -a
 else
