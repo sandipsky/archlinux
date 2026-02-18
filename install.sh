@@ -6,7 +6,7 @@ read -p "ROOT partition (e.g. /dev/nvme0n1p2): " ROOT
 read -p "Enter NTFS D Drive partition: " HOME_DEV
 read -p "Username: " USER
 read -p "Full Name: " NAME
-read -sp "Password: " PASSWORD
+read -p "Password: " PASSWORD
 
 ### -------- FILESYSTEM --------
 mkfs.fat -F32 "$EFI"
@@ -19,7 +19,7 @@ mount "$EFI" /mnt/boot
 ### -------- BASE ARCH --------
 pacman -Syy --noconfirm archlinux-keyring
 
-pacstrap /mnt \
+pacstrap /mnt --noconfirm --needed \
 base base-devel \
 linux linux-headers \
 linux-firmware \
@@ -31,11 +31,10 @@ zram-generator \
 power-profiles-daemon \
 bluez bluez-utils \
 pipewire wireplumber pipewire-alsa pipewire-pulse \
---noconfirm --needed
 
 genfstab -U /mnt >> /mnt/etc/fstab
 ROOT_UUID=$(blkid -s UUID -o value "$ROOT")
-VIRT=$(systemd-detect-virt)
+VIRT=$(systemd-detect-virt) || true
 
 ### -------- CHROOT SCRIPT --------
 cat <<EOF > /mnt/next.sh
