@@ -30,7 +30,7 @@ iptables-nft \
 zram-generator \
 power-profiles-daemon \
 bluez bluez-utils \
-pipewire wireplumber pipewire-alsa pipewire-pulse \
+pipewire wireplumber pipewire-alsa pipewire-pulse 
 
 genfstab -U /mnt >> /mnt/etc/fstab
 ROOT_UUID=$(blkid -s UUID -o value "$ROOT")
@@ -249,7 +249,12 @@ pacman -S --noconfirm --needed \
 
 sudo -u "$USER" npm install -g @angular/cli --prefix=/home/$USER/.local
 
-#AUR APPS
+### --- GIT GLOBAL CONFIG ---
+sudo -u "$USER" git config --global user.name "sandipsky"
+sudo -u "$USER" git config --global user.email "sandipshakya75@gmail.com"
+sudo -u "$USER" git config --global core.pager cat
+
+#--- BOOTLOADER ---
 sudo -u "$USER" yay -S google-chrome visual-studio-code-bin neofetch --noconfirm --needed
 
 ### --- BOOTLOADER ---
