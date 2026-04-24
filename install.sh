@@ -7,6 +7,7 @@ read -p "Enter NTFS D Drive partition: " HOME_DEV
 read -p "Username: " USER
 read -p "Full Name: " NAME
 read -p "Password: " PASSWORD
+read -p "Install KDE Plasma desktop? (y/n): " INSTALL_KDE
 
 ### -------- FILESYSTEM --------
 mkfs.fat -F32 "$EFI"
@@ -273,6 +274,18 @@ initrd  /intel-ucode.img
 initrd  /initramfs-linux.img
 options root=UUID=$ROOT_UUID rw quiet loglevel=3 rd.udev.log_level=3
 ENTRY
+
+### --- DESKTOP (KDE) ---
+if [[ "$INSTALL_KDE" == "y" || "$INSTALL_KDE" == "Y" ]]; then
+    pacman -S --noconfirm --needed \
+        plasma-desktop \
+        konsole \
+        ark \
+        dolphin \
+        sddm
+
+    systemctl enable sddm.service
+fi
 
 ### --- SERVICES ---
 systemctl enable NetworkManager bluetooth power-profiles-daemon fstrim.timer
