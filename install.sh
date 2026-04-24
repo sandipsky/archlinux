@@ -213,7 +213,7 @@ ocl-icd lib32-ocl-icd \
 libxslt lib32-libxslt \
 libva lib32-libva \
 gtk3 lib32-gtk3 \
-gst-plugins-base-libs lib32-gst-plugins-base-libs \
+gst-plugins-base-libs \
 gst-libav \
 vulkan-intel lib32-vulkan-intel \
 lib32-mesa \
