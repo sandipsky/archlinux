@@ -244,9 +244,9 @@ pacman -S --noconfirm --needed \
 
 ### --- DEVELOPMENT STACK ---
 pacman -S --noconfirm --needed \
-    nodejs-lts-iron \
+    nodejs-lts-krypton \
     npm \
-    jdk21-openjdk 
+    jdk25-openjdk 
 
 sudo -u "$USER" npm install -g @angular/cli --prefix=/home/$USER/.local
 
