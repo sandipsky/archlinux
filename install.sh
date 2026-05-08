@@ -8,6 +8,7 @@ read -p "Username: " USER
 read -p "Full Name: " NAME
 read -p "Password: " PASSWORD
 read -p "Install KDE Plasma desktop? (y/n): " INSTALL_KDE
+read -p "Install KVM / libvirt virtualization stack? (y/n): " INSTALL_KVM
 
 ### -------- FILESYSTEM --------
 mkfs.fat -F32 "$EFI"
@@ -75,21 +76,23 @@ if [[ "$VIRT" == "oracle" || "$VIRT" == "virtualbox" ]]; then
 fi
 
 ### --- KVM / LIBVIRT STACK ---
-echo "Installing KVM / libvirt virtualization stack..."
-pacman -S --noconfirm --needed \
-    qemu-full \
-    virt-manager \
-    virt-viewer \
-    dnsmasq \
-    vde2 \
-    openbsd-netcat \
-    ebtables \
-    libguestfs \
-    swtpm
+if [[ "$INSTALL_KVM" == "y" || "$INSTALL_KVM" == "Y" ]]; then
+    echo "Installing KVM / libvirt virtualization stack..."
+    pacman -S --noconfirm --needed \
+        qemu-full \
+        virt-manager \
+        virt-viewer \
+        dnsmasq \
+        vde2 \
+        openbsd-netcat \
+        ebtables \
+        libguestfs \
+        swtpm
 
-usermod -aG libvirt "$USER"
-systemctl enable libvirtd.service
-virsh net-autostart default || true
+    usermod -aG libvirt "$USER"
+    systemctl enable libvirtd.service
+    virsh net-autostart default || true
+fi
 
 ### --- ZRAM ---
 cat <<ZRAM > /etc/systemd/zram-generator.conf
