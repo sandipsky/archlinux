@@ -221,6 +221,7 @@ gst-plugins-base-libs \
 gst-libav \
 vulkan-intel lib32-vulkan-intel \
 lib32-mesa \
+gst-plugins-good \
 python-protobuf
 
 #FONTS
