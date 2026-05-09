@@ -32,6 +32,7 @@ iptables-nft \
 zram-generator \
 power-profiles-daemon \
 bluez bluez-utils \
+ntfs-3g \
 pipewire wireplumber pipewire-alsa pipewire-pulse 
 
 genfstab -U /mnt >> /mnt/etc/fstab
@@ -241,7 +242,6 @@ pacman -S --noconfirm --needed \
     qbittorrent \
     lutris \
     gvfs-mtp \
-    ntfs-3g \
     ffmpegthumbnailer \
     wget
 
