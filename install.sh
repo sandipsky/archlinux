@@ -9,6 +9,8 @@ read -p "Full Name: " NAME
 read -p "Password: " PASSWORD
 read -p "Install KDE Plasma desktop? (y/n): " INSTALL_KDE
 read -p "Install KVM / libvirt virtualization stack? (y/n): " INSTALL_KVM
+read -p "Install NVIDIA drivers? (y/n): " INSTALL_NVIDIA
+read -p "Install Wine / gaming stack? (y/n): " INSTALL_GAMING
 
 ### -------- FILESYSTEM --------
 mkfs.fat -F32 "$EFI"
@@ -105,18 +107,20 @@ fs-type = swap
 ZRAM
 
 ### --- NVIDIA ---
-pacman -S --noconfirm \
-nvidia-open \
-nvidia-utils \
-nvidia-settings \
-libva-nvidia-driver \
-opencl-nvidia
+if [[ "$INSTALL_NVIDIA" == "y" || "$INSTALL_NVIDIA" == "Y" ]]; then
+    pacman -S --noconfirm \
+    nvidia-open \
+    nvidia-utils \
+    nvidia-settings \
+    libva-nvidia-driver \
+    opencl-nvidia
 
-### --- MKINITCPIO / NVIDIA ---
-sed -i 's/^MODULES=.*/MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' /etc/mkinitcpio.conf
-sed -i 's/^HOOKS=.*/HOOKS=(systemd autodetect modconf block filesystems keyboard)/' /etc/mkinitcpio.conf
+    ### --- MKINITCPIO / NVIDIA ---
+    sed -i 's/^MODULES=.*/MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' /etc/mkinitcpio.conf
+    sed -i 's/^HOOKS=.*/HOOKS=(systemd autodetect modconf block filesystems keyboard)/' /etc/mkinitcpio.conf
 
-mkinitcpio -P
+    mkinitcpio -P
+fi
 
 ### --- MULTILIB ---
 sed -i '/\[multilib\]/,/Include/s/^#//' /etc/pacman.conf
@@ -194,35 +198,38 @@ ZSHRC
 chown $USER:$USER /home/$USER/.zshrc
 
 ### --- WINE / GAMING STACK ---
-pacman -S --noconfirm --needed \
-wine-staging wine-mono wine-gecko \
-giflib lib32-giflib \
-libpng lib32-libpng \
-libldap lib32-libldap \
-gnutls lib32-gnutls \
-mpg123 lib32-mpg123 \
-openal lib32-openal \
-v4l-utils lib32-v4l-utils \
-libpulse lib32-libpulse \
-libgpg-error lib32-libgpg-error \
-libgcrypt lib32-libgcrypt \
-alsa-plugins lib32-alsa-plugins \
-alsa-lib lib32-alsa-lib \
-libjpeg-turbo lib32-libjpeg-turbo \
-sqlite lib32-sqlite \
-libxcomposite lib32-libxcomposite \
-libxinerama lib32-libxinerama \
-ncurses lib32-ncurses \
-ocl-icd lib32-ocl-icd \
-libxslt lib32-libxslt \
-libva lib32-libva \
-gtk3 lib32-gtk3 \
-gst-plugins-base-libs \
-gst-libav \
-vulkan-intel lib32-vulkan-intel \
-lib32-mesa \
-gst-plugins-good \
-python-protobuf
+if [[ "$INSTALL_GAMING" == "y" || "$INSTALL_GAMING" == "Y" ]]; then
+    pacman -S --noconfirm --needed \
+    wine-staging wine-mono wine-gecko \
+    giflib lib32-giflib \
+    libpng lib32-libpng \
+    libldap lib32-libldap \
+    gnutls lib32-gnutls \
+    mpg123 lib32-mpg123 \
+    openal lib32-openal \
+    v4l-utils lib32-v4l-utils \
+    libpulse lib32-libpulse \
+    libgpg-error lib32-libgpg-error \
+    libgcrypt lib32-libgcrypt \
+    alsa-plugins lib32-alsa-plugins \
+    alsa-lib lib32-alsa-lib \
+    libjpeg-turbo lib32-libjpeg-turbo \
+    sqlite lib32-sqlite \
+    libxcomposite lib32-libxcomposite \
+    libxinerama lib32-libxinerama \
+    ncurses lib32-ncurses \
+    ocl-icd lib32-ocl-icd \
+    libxslt lib32-libxslt \
+    libva lib32-libva \
+    gtk3 lib32-gtk3 \
+    gst-plugins-base-libs \
+    gst-libav \
+    vulkan-intel lib32-vulkan-intel \
+    lib32-mesa \
+    gst-plugins-good \
+    python-protobuf \
+    lutris
+fi
 
 #FONTS
 pacman -S --noconfirm --needed \
@@ -241,7 +248,6 @@ pacman -S --noconfirm --needed \
     vlc vlc-plugins-all \
     obs-studio \
     qbittorrent \
-    lutris \
     gvfs-mtp \
     ffmpegthumbnailer \
     wget
