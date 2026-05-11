@@ -281,7 +281,7 @@ ENTRY
 ### --- DESKTOP (KDE) ---
 if [[ "$INSTALL_KDE" == "y" || "$INSTALL_KDE" == "Y" ]]; then
     pacman -S --noconfirm --needed \
-        plasma-desktop \
+        plasma-meta \
         konsole \
         ark \
         dolphin \
