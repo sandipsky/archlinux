@@ -32,6 +32,7 @@ iptables-nft \
 zram-generator \
 power-profiles-daemon \
 bluez bluez-utils \
+ntfs-3g \
 pipewire wireplumber pipewire-alsa pipewire-pulse 
 
 genfstab -U /mnt >> /mnt/etc/fstab
@@ -220,6 +221,7 @@ gst-plugins-base-libs \
 gst-libav \
 vulkan-intel lib32-vulkan-intel \
 lib32-mesa \
+gst-plugins-good \
 python-protobuf
 
 #FONTS
@@ -241,7 +243,6 @@ pacman -S --noconfirm --needed \
     qbittorrent \
     lutris \
     gvfs-mtp \
-    ntfs-3g \
     ffmpegthumbnailer \
     wget
 
