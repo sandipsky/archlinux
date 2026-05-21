@@ -8,9 +8,9 @@ read -p "Username: " USER
 read -p "Full Name: " NAME
 read -p "Password: " PASSWORD
 read -p "Install KDE Plasma desktop? (y/n): " INSTALL_KDE
-read -p "Install KVM / libvirt virtualization stack? (y/n): " INSTALL_KVM
 read -p "Install NVIDIA drivers? (y/n): " INSTALL_NVIDIA
 read -p "Install Wine / gaming stack? (y/n): " INSTALL_GAMING
+read -p "Install VirtualBox? (y/n): " INSTALL_VBOX
 
 ### -------- FILESYSTEM --------
 mkfs.fat -F32 "$EFI"
@@ -78,23 +78,19 @@ if [[ "$VIRT" == "oracle" || "$VIRT" == "virtualbox" ]]; then
     systemctl enable vboxservice.service
 fi
 
-### --- KVM / LIBVIRT STACK ---
-if [[ "$INSTALL_KVM" == "y" || "$INSTALL_KVM" == "Y" ]]; then
-    echo "Installing KVM / libvirt virtualization stack..."
+### --- VIRTUALBOX ---
+if [[ "$INSTALL_VBOX" == "y" || "$INSTALL_VBOX" == "Y" ]]; then
     pacman -S --noconfirm --needed \
-        qemu-full \
-        virt-manager \
-        virt-viewer \
-        dnsmasq \
-        vde2 \
-        openbsd-netcat \
-        ebtables \
-        libguestfs \
-        swtpm
+        virtualbox \
+        virtualbox-host-modules-arch
 
-    usermod -aG libvirt "$USER"
-    systemctl enable libvirtd.service
-    virsh net-autostart default || true
+    cat <<VBOXMODS > /etc/modules-load.d/virtualbox.conf
+vboxdrv
+vboxnetadp
+vboxnetflt
+VBOXMODS
+
+    gpasswd -a "$USER" vboxusers
 fi
 
 ### --- ZRAM ---
