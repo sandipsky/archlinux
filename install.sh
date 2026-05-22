@@ -3,7 +3,8 @@ set -e
 
 read -p "EFI partition (e.g. /dev/nvme0n1p1): " EFI
 read -p "ROOT partition (e.g. /dev/nvme0n1p2): " ROOT
-read -p "Enter NTFS D Drive partition: " HOME_DEV
+read -p "HOME partition (optional, e.g. /dev/nvme0n1p3, blank to skip): " HOME_DEV
+read -p "Enter NTFS D Drive partition (optional, e.g. /dev/nvme1n1p1, blank to skip): " NTFS_DRIVE
 read -p "Username: " USER
 read -p "Full Name: " NAME
 read -p "Password: " PASSWORD
@@ -20,6 +21,20 @@ mount -o noatime "$ROOT" /mnt
 mkdir -p /mnt/boot
 mount "$EFI" /mnt/boot
 
+if [[ -n "$HOME_DEV" ]]; then
+    lsblk -no NAME,SIZE,FSTYPE,LABEL "$HOME_DEV"
+    read -p "Format $HOME_DEV as ext4? This will WIPE all data on it. (y/N): " CONFIRM_FORMAT
+    if [[ "$CONFIRM_FORMAT" == "y" || "$CONFIRM_FORMAT" == "Y" ]]; then
+        mkfs.ext4 -F "$HOME_DEV"
+    else
+        echo "Skipping format, mounting existing filesystem on $HOME_DEV..."
+    fi
+    mkdir -p /mnt/home
+    mount "$HOME_DEV" /mnt/home
+else
+    echo "No separate /home partition specified, skipping..."
+fi
+
 ### -------- BASE ARCH --------
 pacman -Syy --noconfirm archlinux-keyring
 
@@ -30,7 +45,6 @@ linux-firmware \
 networkmanager vim git curl \
 intel-ucode \
 dkms \
-iptables-nft \
 zram-generator \
 power-profiles-daemon \
 bluez bluez-utils \
@@ -39,7 +53,7 @@ pipewire wireplumber pipewire-alsa pipewire-pulse
 
 genfstab -U /mnt >> /mnt/etc/fstab
 ROOT_UUID=$(blkid -s UUID -o value "$ROOT")
-HOME_UUID=$(blkid -s UUID -o value "$HOME_DEV") || true
+NTFS_UUID=$(blkid -s UUID -o value "$NTFS_DRIVE") || true
 VIRT=$(systemd-detect-virt) || true
 
 ### -------- CHROOT SCRIPT --------
@@ -142,12 +156,12 @@ POLKIT
 
 chmod 644 /etc/polkit-1/rules.d/49-nopasswd_global.rules
 
-if [[ -n "$HOME_DEV" ]]; then
-    mkdir -p /mnt/HOME
-    echo "UUID=$HOME_UUID /mnt/HOME auto nosuid,nodev,nofail,x-gvfs-show 0 0" >> /etc/fstab
+if [[ -n "$NTFS_DRIVE" ]]; then
+    mkdir -p /mnt/NTFS_DRIVE
+    echo "UUID=$NTFS_UUID /mnt/NTFS_DRIVE auto nosuid,nodev,nofail,x-gvfs-show 0 0" >> /etc/fstab
     mount -a
 else
-    echo "No separate /home drive specified, skipping..."
+    echo "No separate NTFS drive specified, skipping..."
 fi
 
 ### --- BATTERY CHARGE THRESHOLD ---
@@ -185,6 +199,8 @@ HISTSIZE=10000
 SAVEHIST=50000
 
 setopt inc_append_history
+
+PROMPT_EOL_MARK=''
 
 eval "\$(starship init zsh)"
 
