@@ -116,25 +116,43 @@ swap-priority = 100
 fs-type = swap
 ZRAM
 
+### --- MULTILIB ---
+sed -i '/\[multilib\]/,/Include/s/^#//' /etc/pacman.conf
+pacman -Syy --noconfirm
+
 ### --- NVIDIA ---
 if [[ "$INSTALL_NVIDIA" == "y" || "$INSTALL_NVIDIA" == "Y" ]]; then
-    pacman -S --noconfirm \
-    nvidia-open \
-    nvidia-utils \
-    nvidia-settings \
-    libva-nvidia-driver \
-    opencl-nvidia
+    pacman -S --noconfirm --needed \
+        nvidia-open-dkms \
+        nvidia-utils \
+        lib32-nvidia-utils \
+        nvidia-settings \
+        libva-nvidia-driver \
+        opencl-nvidia
 
     ### --- MKINITCPIO / NVIDIA ---
     sed -i 's/^MODULES=.*/MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' /etc/mkinitcpio.conf
     sed -i 's/^HOOKS=.*/HOOKS=(systemd autodetect modconf block filesystems keyboard)/' /etc/mkinitcpio.conf
 
+    mkdir -p /etc/pacman.d/hooks
+    cat <<'NVHOOK' > /etc/pacman.d/hooks/nvidia.hook
+[Trigger]
+Operation=Install
+Operation=Upgrade
+Operation=Remove
+Type=Package
+Target=nvidia-open-dkms
+Target=linux
+
+[Action]
+Description=Update NVIDIA module in initcpio
+Depends=mkinitcpio
+When=PostTransaction
+Exec=/usr/bin/mkinitcpio -P
+NVHOOK
+
     mkinitcpio -P
 fi
-
-### --- MULTILIB ---
-sed -i '/\[multilib\]/,/Include/s/^#//' /etc/pacman.conf
-pacman -Syy --noconfirm
 
 ### --- AUR (yay) ---
 cd /tmp
@@ -294,7 +312,7 @@ title   ArchLinux
 linux   /vmlinuz-linux
 initrd  /intel-ucode.img
 initrd  /initramfs-linux.img
-options root=UUID=$ROOT_UUID rw quiet loglevel=3 rd.udev.log_level=3
+options root=UUID=$ROOT_UUID rw quiet loglevel=3 rd.udev.log_level=3 nvidia-drm.modeset=1
 ENTRY
 
 ### --- DESKTOP (KDE) ---
