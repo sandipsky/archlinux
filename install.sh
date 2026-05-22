@@ -49,7 +49,7 @@ zram-generator \
 power-profiles-daemon \
 bluez bluez-utils \
 ntfs-3g \
-pipewire wireplumber pipewire-alsa pipewire-pulse 
+pipewire wireplumber pipewire-alsa pipewire-pulse
 
 genfstab -U /mnt >> /mnt/etc/fstab
 ROOT_UUID=$(blkid -s UUID -o value "$ROOT")
@@ -129,6 +129,14 @@ if [[ "$INSTALL_NVIDIA" == "y" || "$INSTALL_NVIDIA" == "Y" ]]; then
         nvidia-settings \
         libva-nvidia-driver \
         opencl-nvidia
+
+    ### --- NVIDIA RUNTIME POWER MANAGEMENT ---
+    cat <<'NVPM' > /etc/modprobe.d/nvidia-pm.conf
+options nvidia NVreg_DynamicPowerManagement=0x02
+options nvidia NVreg_EnableS0ixPowerManagement=1
+NVPM
+
+    systemctl enable nvidia-suspend.service nvidia-resume.service nvidia-powerd.service || true
 
     ### --- MKINITCPIO / NVIDIA ---
     sed -i 's/^MODULES=.*/MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' /etc/mkinitcpio.conf
