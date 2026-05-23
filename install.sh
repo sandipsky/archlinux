@@ -194,16 +194,15 @@ fi
 cat <<'BATTERY' > /etc/systemd/system/battery-charge-threshold.service
 [Unit]
 Description=Set battery charge threshold
-After=multi-user.target
+After=multi-user.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
 StartLimitBurst=0
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -c 'echo 80 > /sys/class/power_supply/BAT1/charge_control_end_threshold'
-RemainAfterExit=yes
+ExecStart=/bin/bash -c 'for b in /sys/class/power_supply/BAT*/charge_control_end_threshold; do [ -e "$b" ] && echo 80 > "$b"; done'
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=multi-user.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
 BATTERY
 
 ### --- ZSH / STARSHIP ---
