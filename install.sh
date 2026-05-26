@@ -141,6 +141,8 @@ NVPM
     ### --- MKINITCPIO / NVIDIA ---
     sed -i 's/^MODULES=.*/MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' /etc/mkinitcpio.conf
     sed -i 's/^HOOKS=.*/HOOKS=(systemd autodetect modconf block filesystems keyboard)/' /etc/mkinitcpio.conf
+    sed -i 's/^#\?COMPRESSION=.*/COMPRESSION="zstd"/' /etc/mkinitcpio.conf
+    sed -i 's/^#\?COMPRESSION_OPTIONS=.*/COMPRESSION_OPTIONS=(-3)/' /etc/mkinitcpio.conf
 
     mkdir -p /etc/pacman.d/hooks
     cat <<'NVHOOK' > /etc/pacman.d/hooks/nvidia.hook
@@ -311,6 +313,7 @@ bootctl install --path=/boot
 cat <<LOADER > /boot/loader/loader.conf
 default arch.conf
 timeout 0
+console-mode keep
 editor no
 LOADER
 
@@ -319,7 +322,7 @@ title   ArchLinux
 linux   /vmlinuz-linux
 initrd  /intel-ucode.img
 initrd  /initramfs-linux.img
-options root=UUID=$ROOT_UUID rw quiet loglevel=3 rd.udev.log_level=3 nvidia-drm.modeset=1
+options root=UUID=$ROOT_UUID rw quiet loglevel=3 rd.udev.log_level=3 nvidia-drm.modeset=1 nowatchdog 8250.nr_uarts=0 mitigations=off
 ENTRY
 
 ### --- DESKTOP (KDE) ---
@@ -338,6 +341,8 @@ fi
 systemctl enable NetworkManager bluetooth power-profiles-daemon fstrim.timer
 systemctl enable battery-charge-threshold.service
 systemctl --global enable pipewire pipewire-pulse wireplumber
+
+systemctl mask NetworkManager-wait-online.service systemd-networkd-wait-online.service
 
 echo "INSTALLATION COMPLETE"
 EOF
