@@ -120,6 +120,26 @@ ZRAM
 sed -i '/\[multilib\]/,/Include/s/^#//' /etc/pacman.conf
 pacman -Syy --noconfirm
 
+### --- BOOTLOADER ---
+# Installed EARLY so the system is always bootable, even if a later
+# (network/AUR) step fails under set -e.
+bootctl install --path=/boot
+
+cat <<LOADER > /boot/loader/loader.conf
+default arch.conf
+timeout 0
+console-mode keep
+editor no
+LOADER
+
+cat <<ENTRY > /boot/loader/entries/arch.conf
+title   ArchLinux
+linux   /vmlinuz-linux
+initrd  /intel-ucode.img
+initrd  /initramfs-linux.img
+options root=UUID=$ROOT_UUID rw quiet loglevel=3 rd.udev.log_level=3 nowatchdog 8250.nr_uarts=0 mitigations=off
+ENTRY
+
 ### --- NVIDIA ---
 if [[ "$INSTALL_NVIDIA" == "y" || "$INSTALL_NVIDIA" == "Y" ]]; then
     pacman -S --noconfirm --needed \
@@ -162,6 +182,9 @@ Exec=/usr/bin/mkinitcpio -P
 NVHOOK
 
     mkinitcpio -P
+
+    ### --- NVIDIA KERNEL CMDLINE ---
+    sed -i '/^options / s/$/ nvidia-drm.modeset=1/' /boot/loader/entries/arch.conf
 fi
 
 ### --- AUR (yay) ---
@@ -304,26 +327,8 @@ sudo -u "$USER" git config --global user.name "sandipsky"
 sudo -u "$USER" git config --global user.email "sandipshakya75@gmail.com"
 sudo -u "$USER" git config --global core.pager cat
 
-#--- BOOTLOADER ---
+### --- AUR APPS ---
 sudo -u "$USER" yay -S google-chrome visual-studio-code-bin neofetch --noconfirm --needed
-
-### --- BOOTLOADER ---
-bootctl install --path=/boot
-
-cat <<LOADER > /boot/loader/loader.conf
-default arch.conf
-timeout 0
-console-mode keep
-editor no
-LOADER
-
-cat <<ENTRY > /boot/loader/entries/arch.conf
-title   ArchLinux
-linux   /vmlinuz-linux
-initrd  /intel-ucode.img
-initrd  /initramfs-linux.img
-options root=UUID=$ROOT_UUID rw quiet loglevel=3 rd.udev.log_level=3 nvidia-drm.modeset=1 nowatchdog 8250.nr_uarts=0 mitigations=off
-ENTRY
 
 ### --- DESKTOP (KDE) ---
 if [[ "$INSTALL_KDE" == "y" || "$INSTALL_KDE" == "Y" ]]; then
