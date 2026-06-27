@@ -224,7 +224,7 @@ StartLimitBurst=0
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -c 'for b in /sys/class/power_supply/BAT*/charge_control_end_threshold; do [ -e "$$b" ] && echo 80 > "$$b"; done'
+ExecStart=/usr/bin/find /sys/class/power_supply -name charge_control_end_threshold -exec bash -c 'echo 80 > "{}"' \;
 
 [Install]
 WantedBy=multi-user.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
