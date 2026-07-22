@@ -8,10 +8,27 @@ read -p "Enter NTFS D Drive partition (optional, e.g. /dev/nvme1n1p1, blank to s
 read -p "Username: " USER
 read -p "Full Name: " NAME
 read -p "Password: " PASSWORD
+read -p "Install LTS kernel? (y/N): " INSTALL_LTS
 read -p "Install KDE Plasma desktop? (y/n): " INSTALL_KDE
 read -p "Install NVIDIA drivers? (y/n): " INSTALL_NVIDIA
 read -p "Install Wine / gaming stack? (y/n): " INSTALL_GAMING
 read -p "Install VirtualBox? (y/n): " INSTALL_VBOX
+
+### -------- KERNEL SELECTION --------
+if [[ "$INSTALL_LTS" == "y" || "$INSTALL_LTS" == "Y" ]]; then
+    KERNEL_PKGS="linux-lts linux-lts-headers"
+    KERNEL_IMG="vmlinuz-linux-lts"
+    INITRAMFS_IMG="initramfs-linux-lts.img"
+    KERNEL_TARGET="linux-lts"
+    # prebuilt vbox modules only exist for the regular kernel
+    VBOX_HOST_PKG="virtualbox-host-dkms"
+else
+    KERNEL_PKGS="linux linux-headers"
+    KERNEL_IMG="vmlinuz-linux"
+    INITRAMFS_IMG="initramfs-linux.img"
+    KERNEL_TARGET="linux"
+    VBOX_HOST_PKG="virtualbox-host-modules-arch"
+fi
 
 ### -------- FILESYSTEM --------
 mkfs.fat -F32 "$EFI"
@@ -40,10 +57,11 @@ pacman -Syy --noconfirm archlinux-keyring
 
 pacstrap /mnt --noconfirm --needed \
 base base-devel \
-linux linux-headers \
+$KERNEL_PKGS \
 linux-firmware \
 networkmanager vim git curl \
 intel-ucode \
+mesa vulkan-intel intel-media-driver \
 dkms \
 zram-generator \
 power-profiles-daemon \
@@ -96,7 +114,7 @@ fi
 if [[ "$INSTALL_VBOX" == "y" || "$INSTALL_VBOX" == "Y" ]]; then
     pacman -S --noconfirm --needed \
         virtualbox \
-        virtualbox-host-modules-arch
+        $VBOX_HOST_PKG
 
     cat <<VBOXMODS > /etc/modules-load.d/virtualbox.conf
 vboxdrv
@@ -116,6 +134,11 @@ swap-priority = 100
 fs-type = swap
 ZRAM
 
+### --- AUDIO POWER SAVE (idle codecs suspend; also needed for dGPU D3cold) ---
+cat <<'SNDPM' > /etc/modprobe.d/audio-powersave.conf
+options snd_hda_intel power_save=1 power_save_controller=Y
+SNDPM
+
 ### --- MULTILIB ---
 sed -i '/\[multilib\]/,/Include/s/^#//' /etc/pacman.conf
 pacman -Syy --noconfirm
@@ -134,11 +157,17 @@ LOADER
 
 cat <<ENTRY > /boot/loader/entries/arch.conf
 title   ArchLinux
-linux   /vmlinuz-linux
+linux   /$KERNEL_IMG
 initrd  /intel-ucode.img
-initrd  /initramfs-linux.img
-options root=UUID=$ROOT_UUID rw quiet loglevel=3 rd.udev.log_level=3 nowatchdog 8250.nr_uarts=0 mitigations=off
+initrd  /$INITRAMFS_IMG
+options root=UUID=$ROOT_UUID rw quiet loglevel=3 rd.udev.log_level=3 vt.global_cursor_default=0 i915.fastboot=1 nowatchdog 8250.nr_uarts=0 mitigations=off
 ENTRY
+
+### --- MKINITCPIO (early KMS = flicker-free boot) ---
+sed -i 's/^MODULES=.*/MODULES=(i915)/' /etc/mkinitcpio.conf
+sed -i 's/^HOOKS=.*/HOOKS=(systemd autodetect modconf block filesystems keyboard fsck)/' /etc/mkinitcpio.conf
+sed -i 's/^#\?COMPRESSION=.*/COMPRESSION="zstd"/' /etc/mkinitcpio.conf
+sed -i 's/^#\?COMPRESSION_OPTIONS=.*/COMPRESSION_OPTIONS=(-3)/' /etc/mkinitcpio.conf
 
 ### --- NVIDIA ---
 if [[ "$INSTALL_NVIDIA" == "y" || "$INSTALL_NVIDIA" == "Y" ]]; then
@@ -147,6 +176,7 @@ if [[ "$INSTALL_NVIDIA" == "y" || "$INSTALL_NVIDIA" == "Y" ]]; then
         nvidia-utils \
         lib32-nvidia-utils \
         nvidia-settings \
+        nvidia-prime \
         libva-nvidia-driver \
         opencl-nvidia
 
@@ -154,15 +184,27 @@ if [[ "$INSTALL_NVIDIA" == "y" || "$INSTALL_NVIDIA" == "Y" ]]; then
     cat <<'NVPM' > /etc/modprobe.d/nvidia-pm.conf
 options nvidia NVreg_DynamicPowerManagement=0x02
 options nvidia NVreg_EnableS0ixPowerManagement=1
+options nvidia NVreg_PreserveVideoMemoryAllocations=1
 NVPM
 
-    systemctl enable nvidia-suspend.service nvidia-resume.service nvidia-powerd.service || true
+    systemctl enable nvidia-suspend.service nvidia-resume.service || true
 
-    ### --- MKINITCPIO / NVIDIA ---
-    sed -i 's/^MODULES=.*/MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' /etc/mkinitcpio.conf
-    sed -i 's/^HOOKS=.*/HOOKS=(systemd autodetect modconf block filesystems keyboard)/' /etc/mkinitcpio.conf
-    sed -i 's/^#\?COMPRESSION=.*/COMPRESSION="zstd"/' /etc/mkinitcpio.conf
-    sed -i 's/^#\?COMPRESSION_OPTIONS=.*/COMPRESSION_OPTIONS=(-3)/' /etc/mkinitcpio.conf
+    ### --- NVIDIA RUNTIME D3 (kernel-side runtime PM so the dGPU powers off) ---
+    # add|bind: driver binds inside the initramfs (early KMS), where this rule
+    # isn't present -- matching "add" applies it on the udev coldplug replay.
+    cat <<'NVUDEV' > /etc/udev/rules.d/80-nvidia-pm.rules
+# Enable runtime PM for the NVIDIA GPU and its HDMI audio function
+ACTION=="add|bind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030000", TEST=="power/control", ATTR{power/control}="auto"
+ACTION=="add|bind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030200", TEST=="power/control", ATTR{power/control}="auto"
+ACTION=="add|bind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x040300", TEST=="power/control", ATTR{power/control}="auto"
+
+# Revert to always-on when the driver unbinds
+ACTION=="unbind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030000", TEST=="power/control", ATTR{power/control}="on"
+ACTION=="unbind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030200", TEST=="power/control", ATTR{power/control}="on"
+NVUDEV
+
+    ### --- MKINITCPIO / NVIDIA (early KMS for the dGPU too) ---
+    sed -i 's/^MODULES=.*/MODULES=(i915 nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' /etc/mkinitcpio.conf
 
     mkdir -p /etc/pacman.d/hooks
     cat <<'NVHOOK' > /etc/pacman.d/hooks/nvidia.hook
@@ -172,7 +214,7 @@ Operation=Upgrade
 Operation=Remove
 Type=Package
 Target=nvidia-open-dkms
-Target=linux
+Target=$KERNEL_TARGET
 
 [Action]
 Description=Update NVIDIA module in initcpio
@@ -181,11 +223,12 @@ When=PostTransaction
 Exec=/usr/bin/mkinitcpio -P
 NVHOOK
 
-    mkinitcpio -P
-
     ### --- NVIDIA KERNEL CMDLINE ---
     sed -i '/^options / s/$/ nvidia-drm.modeset=1/' /boot/loader/entries/arch.conf
 fi
+
+# Rebuild initramfs with the early-KMS modules (with or without NVIDIA)
+mkinitcpio -P
 
 ### --- AUR (yay) ---
 cd /tmp
