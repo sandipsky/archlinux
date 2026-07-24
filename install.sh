@@ -320,7 +320,7 @@ sudo -u "$USER" git config --global user.email "sandipshakya75@gmail.com"
 sudo -u "$USER" git config --global core.pager cat
 
 ### --- AUR APPS ---
-sudo -u "$USER" yay -S google-chrome visual-studio-code-bin neofetch --noconfirm --needed
+sudo -u "$USER" yay -S google-chrome visual-studio-code-bin neofetch docker-desktop postman-bin --noconfirm --needed
 
 ### --- DESKTOP (KDE) ---
 if [[ "$INSTALL_KDE" == "y" || "$INSTALL_KDE" == "Y" ]]; then
