@@ -310,7 +310,12 @@ pacman -S --noconfirm --needed \
 pacman -S --noconfirm --needed \
     nodejs-lts-krypton \
     npm \
-    jdk25-openjdk 
+    jdk25-openjdk \
+    docker \
+    docker-buildx \
+    docker-compose
+
+usermod -aG docker $USER
 
 sudo -u "$USER" npm install -g @angular/cli --prefix=/home/$USER/.local
 
@@ -320,7 +325,7 @@ sudo -u "$USER" git config --global user.email "sandipshakya75@gmail.com"
 sudo -u "$USER" git config --global core.pager cat
 
 ### --- AUR APPS ---
-sudo -u "$USER" yay -S google-chrome visual-studio-code-bin neofetch docker-desktop postman-bin --noconfirm --needed
+sudo -u "$USER" yay -S google-chrome visual-studio-code-bin neofetch postman-bin --noconfirm --needed
 
 ### --- DESKTOP (KDE) ---
 if [[ "$INSTALL_KDE" == "y" || "$INSTALL_KDE" == "Y" ]]; then
@@ -335,7 +340,7 @@ if [[ "$INSTALL_KDE" == "y" || "$INSTALL_KDE" == "Y" ]]; then
 fi
 
 ### --- SERVICES ---
-systemctl enable NetworkManager bluetooth power-profiles-daemon fstrim.timer
+systemctl enable NetworkManager bluetooth power-profiles-daemon fstrim.timer docker.service
 systemctl enable battery-charge-threshold.service
 systemctl --global enable pipewire pipewire-pulse wireplumber
 
