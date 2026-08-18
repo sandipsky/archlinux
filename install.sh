@@ -8,6 +8,7 @@ read -p "Username: " USER
 read -p "Full Name: " NAME
 read -p "Password: " PASSWORD
 read -p "Install KDE Plasma desktop? (y/n): " INSTALL_KDE
+read -p "Install VirtualBox (host)? (y/n): " INSTALL_VBOX
 
 ### -------- FILESYSTEM --------
 mkfs.fat -F32 "$EFI"
@@ -46,6 +47,52 @@ VIRT=$(systemd-detect-virt) || true
 cat <<EOF > /mnt/next.sh
 #!/usr/bin/env bash
 set -e
+
+### --- PACKAGE INSTALL HELPER ---
+# Arch drops packages from the official repos to the AUR over time
+# (e.g. lib32-giflib, lib32-openal, lib32-v4l-utils). A plain pacman -S
+# then errors on the unknown package and set -e kills the whole install.
+# pkg_install skips repo-missing packages and defers them to yay later.
+# Packages that fail to install (pacman or AUR) end up in FAILED_PKGS,
+# written to ~/failed-packages.txt at the end.
+MISSING_PKGS=()
+FAILED_PKGS=()
+pkg_install() {
+    local available=() pkg
+    for pkg in "\$@"; do
+        if pacman -Si "\$pkg" &>/dev/null; then
+            available+=("\$pkg")
+        else
+            echo "WARNING: \$pkg not in official repos (moved to AUR?), deferring to yay"
+            MISSING_PKGS+=("\$pkg")
+        fi
+    done
+    if (( \${#available[@]} )); then
+        pacman -S --noconfirm --needed "\${available[@]}" || {
+            echo "WARNING: batch pacman install failed, retrying one at a time"
+            for pkg in "\${available[@]}"; do
+                pacman -S --noconfirm --needed "\$pkg" || {
+                    echo "WARNING: pacman failed to install \$pkg, continuing"
+                    FAILED_PKGS+=("\$pkg")
+                }
+            done
+        }
+    fi
+}
+
+### --- AUR INSTALL HELPER ---
+# yay exits nonzero when any build fails ("Manual intervention is required"),
+# which would kill the install under set -e. Install one package at a time
+# and collect failures into FAILED_PKGS instead of aborting.
+aur_install() {
+    local pkg
+    for pkg in "\$@"; do
+        sudo -u "$USER" yay -S --noconfirm --needed "\$pkg" || {
+            echo "WARNING: AUR build failed for \$pkg, continuing"
+            FAILED_PKGS+=("\$pkg")
+        }
+    done
+}
 
 ### --- USER ---
 useradd -m "$USER"
@@ -254,15 +301,18 @@ ZSHRC
 chown $USER:$USER /home/$USER/.zshrc
 
 ### --- WINE / GAMING STACK ---
-pacman -S --noconfirm --needed \
+# lib32-giflib / lib32-openal / lib32-v4l-utils were dropped from multilib
+# (wine >=10 is WoW64: 32-bit Windows apps use 64-bit libs). Their AUR
+# builds are broken/pointless -- do not re-add them.
+pkg_install \
     wine-staging wine-mono wine-gecko \
-    giflib lib32-giflib \
+    giflib \
     libpng lib32-libpng \
     libldap lib32-libldap \
     gnutls lib32-gnutls \
     mpg123 lib32-mpg123 \
-    openal lib32-openal \
-    v4l-utils lib32-v4l-utils \
+    openal \
+    v4l-utils \
     libpulse lib32-libpulse \
     libgpg-error lib32-libgpg-error \
     libgcrypt lib32-libgcrypt \
@@ -286,7 +336,7 @@ pacman -S --noconfirm --needed \
     lutris
 
 #FONTS
-pacman -S --noconfirm --needed \
+pkg_install \
     noto-fonts \
     noto-fonts-emoji \
     noto-fonts-extra \
@@ -298,7 +348,7 @@ pacman -S --noconfirm --needed \
     ttf-jetbrains-mono
 
 #PROGRAMS
-pacman -S --noconfirm --needed \
+pkg_install \
     vlc vlc-plugins-all \
     obs-studio \
     qbittorrent \
@@ -307,7 +357,7 @@ pacman -S --noconfirm --needed \
     wget
 
 ### --- DEVELOPMENT STACK ---
-pacman -S --noconfirm --needed \
+pkg_install \
     nodejs-lts-krypton \
     npm \
     jdk25-openjdk \
@@ -325,7 +375,13 @@ sudo -u "$USER" git config --global user.email "sandipshakya75@gmail.com"
 sudo -u "$USER" git config --global core.pager cat
 
 ### --- AUR APPS ---
-sudo -u "$USER" yay -S google-chrome visual-studio-code-bin neofetch postman-bin --noconfirm --needed
+aur_install google-chrome visual-studio-code-bin neofetch postman-bin
+
+### --- REPO-DROPPED PACKAGES (AUR fallback) ---
+if (( \${#MISSING_PKGS[@]} )); then
+    echo "Installing packages that moved to AUR: \${MISSING_PKGS[*]}"
+    aur_install "\${MISSING_PKGS[@]}"
+fi
 
 ### --- DESKTOP (KDE) ---
 if [[ "$INSTALL_KDE" == "y" || "$INSTALL_KDE" == "Y" ]]; then
@@ -339,12 +395,40 @@ if [[ "$INSTALL_KDE" == "y" || "$INSTALL_KDE" == "Y" ]]; then
     systemctl enable sddm.service
 fi
 
+### --- VIRTUALBOX (HOST) ---
+if [[ "$INSTALL_VBOX" == "y" || "$INSTALL_VBOX" == "Y" ]]; then
+    if [[ "$VIRT" == "oracle" || "$VIRT" == "virtualbox" ]]; then
+        echo "Running inside VirtualBox, skipping host VirtualBox install"
+    else
+        # Arch dropped the prebuilt virtualbox-host-modules-arch package;
+        # modules are DKMS-built now (linux-headers already in pacstrap).
+        pkg_install virtualbox virtualbox-host-dkms virtualbox-guest-iso
+        cat <<'VBOXMOD' > /etc/modules-load.d/virtualbox.conf
+vboxdrv
+vboxnetadp
+vboxnetflt
+VBOXMOD
+        gpasswd -a "$USER" vboxusers
+        # Extension pack (USB 2.0/3.0, RDP, disk encryption)
+        aur_install virtualbox-ext-oracle
+    fi
+fi
+
 ### --- SERVICES ---
 systemctl enable NetworkManager bluetooth power-profiles-daemon fstrim.timer docker.service
 systemctl enable battery-charge-threshold.service
 systemctl --global enable pipewire pipewire-pulse wireplumber
 
 systemctl mask NetworkManager-wait-online.service systemd-networkd-wait-online.service
+
+### --- FAILED PACKAGE REPORT ---
+if (( \${#FAILED_PKGS[@]} )); then
+    printf '%s\n' "\${FAILED_PKGS[@]}" > /home/$USER/failed-packages.txt
+    chown $USER:$USER /home/$USER/failed-packages.txt
+    echo "WARNING: these packages failed to install (saved to ~/failed-packages.txt):"
+    printf '  %s\n' "\${FAILED_PKGS[@]}"
+    echo 'Retry after reboot with: yay -S --needed \$(cat ~/failed-packages.txt)'
+fi
 
 echo "INSTALLATION COMPLETE"
 EOF

@@ -9,7 +9,6 @@ Personal Arch Linux installer scripts, run from the Arch live ISO. There is no b
 - `install.sh` — the main installer, **hardware-specific**: tuned for an ASUS TUF F15 with Intel 10th-gen i5 (iGPU: UHD, `i915`) and NVIDIA GTX 1650 (Optimus/hybrid graphics). Assumes UEFI + NVMe, Intel-only microcode, `vulkan-intel`, and NVIDIA is installed unconditionally.
 - `install-minimal.sh` — generic minimal variant for any Intel/AMD machine; both microcodes, default mkinitcpio hooks, NVIDIA optional, always installs KDE.
 - `README.md` — manual pre-install steps (Wi-Fi via `iwctl`, partitioning with `cfdisk`) that the scripts do NOT do; they expect EFI and root partitions to already exist and will **format** whatever partitions are entered.
-- `virtualbox.md` — manual guide for installing VirtualBox as a *host* app post-install (deliberately not part of install.sh).
 
 ## Script architecture (both installers)
 
