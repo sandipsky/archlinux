@@ -43,7 +43,7 @@ sh install.sh
 
 ## After Installation reboot and install your Preferred DE or use below script to install hyprland
 ```
-git clone https://github.com/sandipsky/dotfiles
+git clone --depth 1 https://github.com/sandipsky/dotfiles
 cd dotfiles
 sh install.sh
 ```

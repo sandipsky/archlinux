@@ -230,7 +230,7 @@ mkinitcpio -P
 
 ### --- AUR (yay) ---
 cd /tmp
-sudo -u "$USER" git clone https://aur.archlinux.org/yay.git
+sudo -u "$USER" git clone --depth 1 https://aur.archlinux.org/yay.git
 cd yay
 sudo -u "$USER" makepkg -sri --needed --noconfirm
 cd /
