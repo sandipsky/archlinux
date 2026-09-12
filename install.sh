@@ -7,8 +7,6 @@ read -p "Enter NTFS D Drive partition (optional, e.g. /dev/nvme1n1p1, blank to s
 read -p "Username: " USER
 read -p "Full Name: " NAME
 read -p "Password: " PASSWORD
-read -p "Install KDE Plasma desktop? (y/n): " INSTALL_KDE
-read -p "Install VirtualBox (host)? (y/n): " INSTALL_VBOX
 
 ### -------- FILESYSTEM --------
 mkfs.fat -F32 "$EFI"
@@ -381,37 +379,6 @@ aur_install google-chrome visual-studio-code-bin neofetch postman-bin
 if (( \${#MISSING_PKGS[@]} )); then
     echo "Installing packages that moved to AUR: \${MISSING_PKGS[*]}"
     aur_install "\${MISSING_PKGS[@]}"
-fi
-
-### --- DESKTOP (KDE) ---
-if [[ "$INSTALL_KDE" == "y" || "$INSTALL_KDE" == "Y" ]]; then
-    pacman -S --noconfirm --needed \
-        plasma-meta \
-        konsole \
-        ark \
-        dolphin \
-        sddm
-
-    systemctl enable sddm.service
-fi
-
-### --- VIRTUALBOX (HOST) ---
-if [[ "$INSTALL_VBOX" == "y" || "$INSTALL_VBOX" == "Y" ]]; then
-    if [[ "$VIRT" == "oracle" || "$VIRT" == "virtualbox" ]]; then
-        echo "Running inside VirtualBox, skipping host VirtualBox install"
-    else
-        # Arch dropped the prebuilt virtualbox-host-modules-arch package;
-        # modules are DKMS-built now (linux-headers already in pacstrap).
-        pkg_install virtualbox virtualbox-host-dkms virtualbox-guest-iso
-        cat <<'VBOXMOD' > /etc/modules-load.d/virtualbox.conf
-vboxdrv
-vboxnetadp
-vboxnetflt
-VBOXMOD
-        gpasswd -a "$USER" vboxusers
-        # Extension pack (USB 2.0/3.0, RDP, disk encryption)
-        aur_install virtualbox-ext-oracle
-    fi
 fi
 
 ### --- SERVICES ---
