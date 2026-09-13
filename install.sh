@@ -373,7 +373,7 @@ sudo -u "$USER" git config --global user.email "sandipshakya75@gmail.com"
 sudo -u "$USER" git config --global core.pager cat
 
 ### --- AUR APPS ---
-aur_install google-chrome visual-studio-code-bin neofetch postman-bin
+aur_install google-chrome visual-studio-code-bin postman-bin
 
 ### --- REPO-DROPPED PACKAGES (AUR fallback) ---
 if (( \${#MISSING_PKGS[@]} )); then
